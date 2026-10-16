@@ -1,0 +1,9 @@
+{
+  "id": "astra-galaxy",
+  "name": "Astra Memory Galaxy",
+  "version": "0.5.0",
+  "minAppVersion": "1.5.0",
+  "description": "Explore Obsidian notes as a luminous 3D memory galaxy.",
+  "author": "Astra",
+  "isDesktopOnly": false
+}

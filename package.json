@@ -1,0 +1,22 @@
+{
+  "name": "astra-galaxy",
+  "version": "0.5.0",
+  "private": true,
+  "description": "A luminous 3D knowledge graph inside a moving galaxy for Obsidian",
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "tsc --noEmit && node esbuild.config.mjs",
+    "demo:build": "esbuild demo/demo.ts --bundle --format=esm --target=es2020 --outfile=demo/demo.js",
+    "demo": "npm run demo:build && node demo/server.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "@types/three": "^0.186.0",
+    "esbuild": "^0.25.5",
+    "obsidian": "latest",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  }
+}

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Astra Memory Galaxy · Vista previa</title>
+    <link rel="stylesheet" href="./styles.css">
+    <style>
+      * { box-sizing: border-box; }
+      html, body, #galaxy { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #050611; }
+      canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+      .hud { position: fixed; top: 30px; left: 34px; color: #f7edff; font: 13px system-ui, sans-serif; pointer-events: none; }
+      h1 { margin: 6px 0; font: 40px Georgia, serif; font-weight: 400; }
+      .eyebrow { color: #b895e4; font-size: 10px; letter-spacing: .2em; }
+      .help { color: #b3a5c7; }
+      .count { position: fixed; right: 34px; top: 40px; color: #e6d9f5; font: 12px system-ui, sans-serif; }
+      #status { position: fixed; left: 34px; bottom: 30px; color: #dcc8f8; font: 12px system-ui, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div id="galaxy"></div>
+    <div class="hud"><div class="eyebrow">✦ ASTRA · MEMORIA</div><h1>Memory Galaxy</h1><div class="help">Arrastra para girar · Rueda para acercar</div></div>
+    <div id="count" class="count"></div>
+    <div id="status">Selecciona una estrella</div>
+    <script type="module" src="./demo.js"></script>
+  </body>
+</html>
