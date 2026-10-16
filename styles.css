@@ -124,6 +124,7 @@
   font-size: 18px;
   font-style: italic;
   font-weight: 600;
+  font-variant-numeric: lining-nums;
   letter-spacing: 0;
   line-height: 24px;
 }
@@ -530,7 +531,7 @@
 .astra-hint {
   right: 82px;
   bottom: 48px;
-  max-width: 220px;
+  max-width: 340px;
   color: var(--astra-ink-mute);
   font-family: var(--astra-font-display);
   font-size: 14px;
@@ -579,6 +580,7 @@
   font-family: var(--astra-font-display);
   font-size: 28px;
   font-weight: 600;
+  font-variant-numeric: lining-nums;
   letter-spacing: -0.01em;
   line-height: 1.02;
   overflow-wrap: anywhere;
