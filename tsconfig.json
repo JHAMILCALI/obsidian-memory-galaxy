@@ -12,7 +12,7 @@
     "isolatedModules": true,
     "strictNullChecks": true,
     "strict": true,
-    "lib": ["DOM", "ES2020"]
+    "lib": ["DOM", "DOM.Iterable", "ES2020"]
   },
   "include": ["src/**/*.ts"]
 }

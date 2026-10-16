@@ -1,5 +1,7 @@
 import { ItemView, Plugin, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import { GalaxyScene, type NoteConnection, type NoteStar, type StarHit } from "./galaxy-scene";
+import { registerFonts } from "./fonts";
+import { recencyByPath } from "./recency";
 
 const VIEW_TYPE = "astra-galaxy-view";
 
@@ -8,6 +10,7 @@ interface GalaxySettings {
   glow: number;
   motion: boolean;
   showLinks: boolean;
+  showConstellations: boolean;
   showLabels: boolean;
   labelMode: "featured" | "all";
 }
@@ -17,6 +20,7 @@ const DEFAULT_SETTINGS: GalaxySettings = {
   glow: 0.9,
   motion: true,
   showLinks: true,
+  showConstellations: true,
   showLabels: true,
   labelMode: "featured"
 };
@@ -42,8 +46,8 @@ class AstraGalaxyView extends ItemView {
   private results!: HTMLElement;
   private details!: HTMLElement;
   private noteCount!: HTMLElement;
-  private emptyCount!: HTMLElement;
   private linkCount!: HTMLElement;
+  private recentCount!: HTMLElement;
   private notes: NoteStar[] = [];
   private links: NoteConnection[] = [];
   private selected: StarHit | null = null;
@@ -51,6 +55,7 @@ class AstraGalaxyView extends ItemView {
   private events: AbortController | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private pointerStart: { x: number; y: number } | null = null;
+  private unregisterFonts: (() => void) | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: AstraGalaxyPlugin) {
     super(leaf);
@@ -64,6 +69,7 @@ class AstraGalaxyView extends ItemView {
   async onOpen(): Promise<void> {
     this.contentEl.empty();
     this.contentEl.addClass("astra-view");
+    this.unregisterFonts = registerFonts(this.contentEl.ownerDocument);
     this.events = new AbortController();
     const signal = this.events.signal;
     this.stage = element("div", "astra-stage", this.contentEl);
@@ -74,6 +80,7 @@ class AstraGalaxyView extends ItemView {
       this.scene.setGlow(this.plugin.settings.glow);
       this.scene.setMotion(this.plugin.settings.motion);
       this.scene.setShowLinks(this.plugin.settings.showLinks);
+      this.scene.setShowConstellations(this.plugin.settings.showConstellations);
       this.scene.setShowLabels(this.plugin.settings.showLabels);
       this.scene.setLabelMode(this.plugin.settings.labelMode);
       this.motionEnabled = this.plugin.settings.motion;
@@ -84,8 +91,9 @@ class AstraGalaxyView extends ItemView {
 
     const top = element("header", "astra-top", this.stage);
     const brand = element("div", "astra-brand", top);
-    element("div", "astra-eyebrow", brand, "✦  ASTRA · MEMORIA");
-    element("h1", "astra-title", brand, "Memory Galaxy");
+    element("div", "astra-eyebrow", brand, "Astra · Atlas de memoria");
+    const title = element("h1", "astra-title", brand, "Memory ");
+    element("em", "", title, "Galaxy");
     element("p", "astra-subtitle", brand, "Elige una estrella para explorar sus ideas.");
 
     const stats = element("div", "astra-stats", top);
@@ -95,23 +103,21 @@ class AstraGalaxyView extends ItemView {
     const linkStat = element("div", "astra-stat", stats);
     this.linkCount = element("strong", "astra-stat-value", linkStat, "0");
     element("span", "astra-stat-label", linkStat, "enlaces");
-    const emptyStat = element("div", "astra-stat", stats);
-    this.emptyCount = element("strong", "astra-stat-value", emptyStat, "240");
-    element("span", "astra-stat-label", emptyStat, "nodos vacíos");
+    const recentStat = element("div", "astra-stat astra-stat-recent", stats);
+    this.recentCount = element("strong", "astra-stat-value", recentStat, "0");
+    element("span", "astra-stat-label", recentStat, "recientes");
 
     const tools = element("div", "astra-tools", this.stage);
-    const explore = element("button", "astra-button astra-button-primary", tools, "✧  Ver galaxia");
-    explore.type = "button";
+    const explore = this.textButton(tools, "orbit", "Galaxia completa", "astra-button astra-button-primary");
     explore.addEventListener("click", () => { this.select(null); this.scene?.wideView(); }, { signal });
-    const center = element("button", "astra-button", tools, "Volver al mapa");
-    center.type = "button";
+    const center = this.textButton(tools, "locate-fixed", "Recentrar");
     center.addEventListener("click", () => this.select(null), { signal });
     const searchWrap = element("div", "astra-search-wrap", tools);
     const searchIcon = element("span", "astra-search-icon", searchWrap);
     setIcon(searchIcon, "search");
     this.search = element("input", "astra-search", searchWrap);
     this.search.type = "search";
-    this.search.placeholder = "Buscar una estrella con nota…";
+    this.search.placeholder = "Buscar una nota…";
     this.search.setAttribute("aria-label", "Buscar notas en la galaxia");
     this.search.autocomplete = "off";
     this.results = element("div", "astra-results", searchWrap);
@@ -128,8 +134,7 @@ class AstraGalaxyView extends ItemView {
       }
     }, { signal });
 
-    const adjust = element("button", "astra-button astra-button-settings", tools, "⚙ Ajustes");
-    adjust.type = "button";
+    const adjust = this.textButton(tools, "sliders-horizontal", "Ajustes", "astra-button astra-button-settings");
     adjust.setAttribute("aria-expanded", "false");
     const settingsPanel = element("section", "astra-settings", this.stage);
     settingsPanel.hidden = true;
@@ -138,9 +143,13 @@ class AstraGalaxyView extends ItemView {
       this.scene?.setSpacing(value);
       void this.plugin.updateSettings({ spacing: value });
     });
-    this.addRange(settingsPanel, "Brillo neón", 0.5, 2, 0.05, this.plugin.settings.glow, (value) => {
+    this.addRange(settingsPanel, "Brillo", 0.5, 2, 0.05, this.plugin.settings.glow, (value) => {
       this.scene?.setGlow(value);
       void this.plugin.updateSettings({ glow: value });
+    });
+    this.addToggle(settingsPanel, "Constelaciones en el mapa", this.plugin.settings.showConstellations, (value) => {
+      this.scene?.setShowConstellations(value);
+      void this.plugin.updateSettings({ showConstellations: value });
     });
     this.addToggle(settingsPanel, "Mostrar ramas al elegir idea", this.plugin.settings.showLinks, (value) => {
       this.scene?.setShowLinks(value);
@@ -161,17 +170,17 @@ class AstraGalaxyView extends ItemView {
     }, { signal });
 
     const legend = element("div", "astra-legend", this.stage);
-    element("div", "astra-legend-title", legend, "MAPA DE IDEAS");
-    this.legendItem(legend, "#cbb4ff", "Idea con nota");
-    this.legendItem(legend, "#9d87ff", "Rama al elegir una idea");
-    this.legendItem(legend, "#a6d8ff", "Estrella vacía");
+    element("div", "astra-legend-title", legend, "Leyenda");
+    this.legendItem(legend, "dot", "Nota, en el color de su carpeta");
+    this.legendItem(legend, "diamond", "Editada hace poco");
+    this.legendItem(legend, "line", "Notas enlazadas");
     this.details = element("aside", "astra-details", this.stage);
     this.details.hidden = true;
 
     const controls = element("div", "astra-controls", this.stage);
     this.iconButton(controls, "plus", "Acercar", () => this.scene?.zoom(1.3));
     this.iconButton(controls, "minus", "Alejar", () => this.scene?.zoom(1 / 1.3));
-    this.iconButton(controls, "maximize", "Volver al mapa", () => this.select(null));
+    this.iconButton(controls, "locate-fixed", "Recentrar", () => this.select(null));
     const motion = this.iconButton(controls, this.motionEnabled ? "pause" : "play", this.motionEnabled ? "Pausar movimiento" : "Reanudar movimiento", () => {
       this.motionEnabled = !this.motionEnabled;
       this.scene?.setMotion(this.motionEnabled);
@@ -181,7 +190,7 @@ class AstraGalaxyView extends ItemView {
       motion.title = this.motionEnabled ? "Pausar movimiento" : "Reanudar movimiento";
     });
 
-    element("div", "astra-hint", this.stage, "Pulsa una idea para abrir su rama · Doble clic para abrir la nota");
+    element("div", "astra-hint", this.stage, "Clic en una estrella para ver su rama, doble clic para abrir la nota");
 
     this.stage.addEventListener("click", (event) => {
       const label = (event.target as HTMLElement).closest<HTMLElement>(".astra-node-label");
@@ -230,6 +239,8 @@ class AstraGalaxyView extends ItemView {
     this.scene?.dispose();
     this.scene = null;
     this.contentEl.removeClass("astra-view");
+    this.unregisterFonts?.();
+    this.unregisterFonts = null;
   }
 
   reloadNotes(): void {
@@ -237,8 +248,10 @@ class AstraGalaxyView extends ItemView {
     const selectedPath = this.selected?.kind === "note" ? this.selected.note.file.path : null;
     this.notes = this.app.vault.getMarkdownFiles().map((file) => {
       const group = file.path.includes("/") ? file.path.split("/")[0] : "Sin carpeta";
-      return { file, group, color: GalaxyScene.colorForGroup(group), incoming: 0, outgoing: 0, degree: 0 };
+      return { file, group, color: GalaxyScene.colorForGroup(group), incoming: 0, outgoing: 0, degree: 0, recency: 0 };
     });
+    const recency = recencyByPath(this.notes.map((note) => note.file));
+    for (const note of this.notes) note.recency = recency.get(note.file.path) ?? 0;
     const byPath = new Map(this.notes.map((note) => [note.file.path, note]));
     const neighbors = new Map(this.notes.map((note) => [note.file.path, new Set<string>()]));
     const connections = new Map<string, NoteConnection>();
@@ -265,7 +278,7 @@ class AstraGalaxyView extends ItemView {
     this.scene?.setGlow(this.plugin.settings.glow);
     this.noteCount.textContent = this.notes.length.toLocaleString("es");
     this.linkCount.textContent = this.links.length.toLocaleString("es");
-    this.emptyCount.textContent = String(this.scene?.emptyNodeCount ?? 240);
+    this.recentCount.textContent = String(recency.size);
     if (selectedPath) {
       const note = this.notes.find((item) => item.file.path === selectedPath);
       this.selected = note ? { kind: "note", note } : null;
@@ -311,11 +324,18 @@ class AstraGalaxyView extends ItemView {
     input.addEventListener("change", () => onChange(input.checked), { signal: this.events!.signal });
   }
 
-  private legendItem(parent: HTMLElement, color: string, label: string): void {
+  private legendItem(parent: HTMLElement, shape: "dot" | "diamond" | "line", label: string): void {
     const chip = element("div", "astra-legend-chip", parent);
-    const dot = element("span", "astra-legend-dot", chip);
-    dot.style.backgroundColor = color;
+    element("span", `astra-legend-mark is-${shape}`, chip);
     element("span", "", chip, label);
+  }
+
+  private textButton(parent: HTMLElement, icon: string, label: string, className = "astra-button"): HTMLButtonElement {
+    const button = element("button", className, parent);
+    button.type = "button";
+    setIcon(element("span", "astra-button-icon", button), icon);
+    element("span", "", button, label);
+    return button;
   }
 
   private iconButton(parent: HTMLElement, icon: string, label: string, action: () => void): HTMLButtonElement {
@@ -331,7 +351,6 @@ class AstraGalaxyView extends ItemView {
   private select(hit: StarHit | null): void {
     this.selected = hit;
     if (hit?.kind === "note") this.scene?.focus(hit.note.file.path);
-    else if (hit?.kind === "empty") this.scene?.select(null);
     else this.scene?.reset();
     this.renderDetails();
   }
@@ -342,17 +361,14 @@ class AstraGalaxyView extends ItemView {
     this.details.hidden = !hit;
     if (!hit) return;
     const top = element("div", "astra-detail-top", this.details);
-    const label = hit.kind === "note" ? "✦  ESTRELLA CON NOTA" : "✧  ESTRELLA VACÍA";
-    const kicker = element("span", "astra-detail-kicker", top, label);
-    if (hit.kind === "note") kicker.style.color = hit.note.color;
+    const kicker = element("span", "astra-detail-kicker", top, hit.note.recency > 0 ? "Idea reciente" : hit.note.group);
+    kicker.style.setProperty("--astra-node-color", hit.note.color);
+    kicker.classList.toggle("is-recent", hit.note.recency > 0);
     this.iconButton(top, "x", "Cerrar detalle", () => this.select(null));
-    if (hit.kind === "empty") {
-      element("h2", "astra-detail-title", this.details, `Nodo vacío ${hit.index}`);
-      element("p", "astra-detail-path", this.details, "Una estrella libre dentro de la galaxia. No necesita una nota ni un enlace para existir.");
-      return;
-    }
     element("h2", "astra-detail-title", this.details, hit.note.file.basename);
     element("p", "astra-detail-path", this.details, hit.note.file.path);
+    const edited = hit.note.file.stat?.mtime;
+    if (edited) element("p", "astra-detail-path astra-detail-edited", this.details, `Editada el ${new Date(edited).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })}`);
     const metrics = element("div", "astra-detail-metrics", this.details);
     const incoming = element("div", "", metrics);
     element("strong", "", incoming, String(hit.note.incoming));
@@ -367,7 +383,7 @@ class AstraGalaxyView extends ItemView {
       .sort((a, b) => b.degree - a.degree)
       .slice(0, 8);
     if (related.length) {
-      element("div", "astra-related-title", this.details, "IDEAS RELACIONADAS");
+      element("div", "astra-related-title", this.details, "Ideas relacionadas");
       const list = element("div", "astra-related-list", this.details);
       for (const note of related) {
         const button = element("button", "astra-related-item", list, note.file.basename);
@@ -377,8 +393,7 @@ class AstraGalaxyView extends ItemView {
     } else {
       element("p", "astra-detail-path astra-no-links", this.details, "Esta nota aún no tiene enlaces con otras notas.");
     }
-    const open = element("button", "astra-button astra-button-primary astra-open-note", this.details, "Abrir nota  ↗");
-    open.type = "button";
+    const open = this.textButton(this.details, "arrow-up-right", "Abrir nota", "astra-button astra-open-note");
     open.addEventListener("click", () => void this.openNote(hit.note.file));
   }
 
