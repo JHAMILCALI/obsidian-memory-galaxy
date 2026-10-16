@@ -8,6 +8,7 @@ const context = await esbuild.context({
   format: "cjs",
   target: "es2020",
   outfile: "main.js",
+  loader: { ".woff2": "dataurl" },
   sourcemap: watch ? "inline" : false,
   minify: !watch,
   logLevel: "info"

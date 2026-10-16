@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
     "build": "tsc --noEmit && node esbuild.config.mjs",
-    "demo:build": "esbuild demo/demo.ts --bundle --format=esm --target=es2020 --outfile=demo/demo.js",
+    "demo:build": "esbuild demo/demo.ts --bundle --format=esm --target=es2020 --loader:.woff2=dataurl --outfile=demo/demo.js",
     "demo": "npm run demo:build && node demo/server.mjs"
   },
   "devDependencies": {
